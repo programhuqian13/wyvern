@@ -160,16 +160,37 @@ public class Application extends CachingTypedAST implements CoreAST {
         args.add(new wyvern.target.corewyvernIL.expression.New(new TypeDeclaration(genericName, vt, this.location)));
     }
 
+    private int countFormalGenerics(List<FormalArg> formals) {
+        int count = 0;
+
+        for(FormalArg formal : formals) {
+            String name = formal.getName();
+            if(!name.startsWith(DefDeclaration.GENERIC_PREFIX)) {
+                // We're hit the end of the generic args!
+                break;
+            }
+            count++;
+        }
+
+        return count;
+    }
+
     private void generateGenericArgs(List<Expression> args, List<FormalArg> formals, GenContext ctx) {
-        for(int i = 0; i < this.generics.size(); i++) {
-            String formalName = formals.get(i).getName();
-            if(formalName.startsWith(DefDeclaration.GENERIC_PREFIX)) {
-                // then the formal is a generic argument
+        int count = countFormalGenerics(formals);
+        if (count < this.generics.size()) {
+            // then the number of actual generics is greater than the number of formal generics
+            // this is not permitted.
+            ToolError.reportError(ErrorMessage.EXTRA_GENERICS_AT_CALL_SITE, this);
+        } else if(count == this.generics.size()) {
+            // then we can simply add each of the actual generics to the argument's list
+            for(int i = 0; i < count; i++) {
+                String formalName = formals.get(i).getName();
                 String generic = this.generics.get(i);
                 addGenericToArgList(formalName, generic, args, ctx);    
-            }  else {
-                ToolError.reportError(ErrorMessage.EXTRA_GENERICS_AT_CALL_SITE, this);
             }
+        } else {
+            // this case executes when count > this.generics.size()
+            // In this case, we can do type inference to determine what types have been elided
         }
     }
     
