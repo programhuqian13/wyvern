@@ -1256,6 +1256,21 @@ public class ILTests {
 
     @Test
     @Category(CurrentlyBroken.class)
+    public void testInferenceCaseGreater() throws ParseException {
+
+        String source = ""
+                      + "def identity(value: Int): Int \n"
+                      + "    value \n\n"
+
+                      + "val x = 15 \n"
+                      + "identity[Int](x) \n"
+                      + "";
+
+        doTest(source, null, new IntegerLiteral(15));
+    }
+
+    @Test
+    @Category(CurrentlyBroken.class)
     public void testParameterizationInferred() throws ParseException {
 
         String source = ""
