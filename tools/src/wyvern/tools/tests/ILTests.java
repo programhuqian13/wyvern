@@ -1270,7 +1270,6 @@ public class ILTests {
     }
 
     @Test
-    @Category(CurrentlyBroken.class)
     public void testParameterizationInferred() throws ParseException {
 
         String source = ""

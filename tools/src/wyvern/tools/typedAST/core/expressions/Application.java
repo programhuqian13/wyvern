@@ -22,6 +22,7 @@ import wyvern.target.corewyvernIL.expression.MethodCall;
 import wyvern.target.corewyvernIL.expression.Variable;
 import wyvern.target.corewyvernIL.support.CallableExprGenerator;
 import wyvern.target.corewyvernIL.support.GenContext;
+import wyvern.target.corewyvernIL.support.TypeGenContext;
 import wyvern.target.corewyvernIL.type.NominalType;
 import wyvern.target.corewyvernIL.type.ValueType;
 import wyvern.tools.errors.ErrorMessage;
@@ -175,6 +176,9 @@ public class Application extends CachingTypedAST implements CoreAST {
         return count;
     }
 
+    /**
+        generateGenericArgs determined what the generic actuals are based on how many generics were provided and how many were expected by the formals.
+    */
     private void generateGenericArgs(List<Expression> args, List<FormalArg> formals, GenContext ctx) {
         int count = countFormalGenerics(formals);
         if (count < this.generics.size()) {
@@ -191,6 +195,38 @@ public class Application extends CachingTypedAST implements CoreAST {
         } else {
             // this case executes when count > this.generics.size()
             // In this case, we can do type inference to determine what types have been elided
+
+            // First, add any of the actual generics to the argument list.
+            for(int i = 0; i < this.generics.size(); i++) {
+                String formalName = formals.get(i).getName();
+                String generic = this.generics.get(i);
+                addGenericToArgList(formalName, generic, args, ctx);    
+            }
+            // Then, try to infer the type of the remaining generics
+            for(int i = this.generics.size(); i < count; i++) {
+                // Get the expected generic variable name from the formal.
+                String formalName = formals.get(i).getName();
+                // Now, capture the type name.
+                String identifier = formalName.substring(DefDeclaration.GENERIC_PREFIX.length());
+                ValueType missingGeneric = DefDeclaration.genericStructuralType(identifier);
+                // GenContext newCtx = ctx.extend()
+                
+                // Now, look for another formal that uses this generic type.
+                for(int j = count; j < formals.size(); j++) {
+                    // If this formal arg's type is the same as the generic
+                    // then we know that this argument's actual type implies the missing actual generic type
+                    ValueType actual = formals.get(j).getType();
+                    String name = formals.get(j).getName();
+                    //GenContext localCtx = getILTypeForGeneric(ctx, name.substring(DefDeclaration.GENERIC_PREFIX.length()));
+                    // localCtx = new TypeGenContext(name, name, ctx);
+                    // localCtx = ctx.extend(name, new Variable(name), actual);
+                    
+                    if(actual.equalsInContext(missingGeneric, localCtx)) {
+                        // then we can infer the type!
+                        throw new RuntimeException("We did it!");
+                    }
+                }
+            }
         }
     }
     
