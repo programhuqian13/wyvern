@@ -63,7 +63,6 @@ public class DefDeclaration extends Declaration implements CoreAST, BoundCode, T
     private List<String> generics;
 
     public static final String GENERIC_PREFIX = "__generic__";
-    public static final String GENERIC_MEMBER = "T";
 
 	public DefDeclaration(String name, Type returnType, List<String> generics, List<NameBinding> argNames,
 						  TypedAST body, boolean isClassDef, FileLocation location) {
@@ -268,6 +267,10 @@ public class DefDeclaration extends Declaration implements CoreAST, BoundCode, T
 
     private boolean isGeneric() {
         return !this.generics.isEmpty();
+    }
+
+    public static  boolean isGeneric(FormalArg a) {
+        return a.getName().startsWith(GENERIC_PREFIX);
     }
 
 	private ValueType getResultILType(GenContext ctx) {

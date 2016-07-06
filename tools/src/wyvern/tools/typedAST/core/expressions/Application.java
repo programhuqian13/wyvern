@@ -180,7 +180,8 @@ public class Application extends CachingTypedAST implements CoreAST {
     /**
         generateGenericArgs determined what the generic actuals are based on how many generics were provided and how many were expected by the formals.
     */
-    private void generateGenericArgs(List<Expression> args, List<FormalArg> formals, GenContext ctx) {
+    private void generateGenericArgs(List<Expression> args, DefDeclType ddt, GenContext ctx) {
+        List<FormalArg> formals = ddt.getFormalArgs();
         int count = countFormalGenerics(formals);
         if (count < this.generics.size()) {
             // then the number of actual generics is greater than the number of formal generics
@@ -204,28 +205,43 @@ public class Application extends CachingTypedAST implements CoreAST {
                 addGenericToArgList(formalName, generic, args, ctx);    
             }
             // Then, try to infer the type of the remaining generics
+
+            // Collect the mapping from generic args to provided args
+            Map<Integer, Integer> inferenceMap = ddt.genericMapping();
+
             for(int i = this.generics.size(); i < count; i++) {
-                // Get the expected generic variable name from the formal.
-                String formalName = formals.get(i).getName();
-                // Now, capture the type name.
-                String identifier = formalName.substring(DefDeclaration.GENERIC_PREFIX.length());
-                ValueType missingGeneric = DefDeclaration.genericStructuralType(identifier);
-                // GenContext newCtx = ctx.extend()
                 
-                // Now, look for another formal that uses this generic type.
-                for(int j = count; j < formals.size(); j++) {
-                    // If this formal arg's type is the same as the generic
-                    // then we know that this argument's actual type implies the missing actual generic type
-                    ValueType actual = formals.get(j).getType();
-                    String name = formals.get(j).getName();
-                    //GenContext localCtx = getILTypeForGeneric(ctx, name.substring(DefDeclaration.GENERIC_PREFIX.length()));
-                    // localCtx = new TypeGenContext(name, name, ctx);
-                    // localCtx = ctx.extend(name, new Variable(name), actual);
-                    
-                    if(actual.equalsInContext(missingGeneric, localCtx)) {
-                        // then we can infer the type!
-                        throw new RuntimeException("We did it!");
+                if(!inferenceMap.containsKey(i)) {
+                    // then we can't infer the type
+                    // TODO Missing generic at call site
+                    ToolError.reportError(ErrorMessage.EXTRA_GENERICS_AT_CALL_SITE, this);
+                }
+
+                // formal position tells you where in the formals the argument that uses the generic is
+                int formalPos = inferenceMap.get(i);
+                // actual position tells you where in the actual argument list the type should be
+                int actualPos = formalPos - count;
+                if (this.argument instanceof TupleObject) {
+                    ExpressionAST[] rawArgs = ((TupleObject) this.argument).getObjects();
+                    if (formalPos == rawArgs.length) {
+                        // then we're inferring from the result type
+                    } else {
+                        ExpressionAST inferArg = rawArgs[formalPos];
+                        args.add(inferArg.generateIL(
+                                ctx, formals.get(formalPos).getType()
+                        ));
                     }
+                } else if(this.argument instanceof UnitVal){
+                    // uhhhhh?
+                    // The arg is a unit value. We must be inferring from the result type
+                } else {
+                    // Then the arg must be a single element
+                    if(actualPos != 0) {
+                        // Inferring from a formal arg that doesn't exist
+                        // TODO unless we're inferring from the result type.....
+                        // ToolError
+                    }
+                    args.add(argument.generateIL(ctx, formals.get(0).getType()));
                 }
             }
         }
@@ -247,12 +263,13 @@ public class Application extends CachingTypedAST implements CoreAST {
 	@Override
 	public Expression generateIL(GenContext ctx, ValueType expectedType) {
 		CallableExprGenerator exprGen = function.getCallableExpr(ctx);
-		List<FormalArg> formals = exprGen.getExpectedArgTypes(ctx);
-        int offset;;
+        DefDeclType ddt = exprGen.getDeclType(ctx);
+		List<FormalArg> formals = ddt.getFormalArgs();
+        int offset;
 		List<Expression> args = new LinkedList<Expression>();
 
         // Add generic arguments to the argslist
-        generateGenericArgs(args, formals, ctx);
+        generateGenericArgs(args, ddt, ctx);
 
         if (argument instanceof TupleObject) {
             generateILForTuples(formals, args, ctx);
